@@ -98,8 +98,8 @@ func main() {
 
   <-sCtx.Done()
   log.Printf("Caught Signal... Terminating...\n")
-	cCtx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
-	defer cancel()
+  cCtx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+  defer cancel()
 
   s.Shutdown(cCtx)
 }
