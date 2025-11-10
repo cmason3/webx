@@ -74,10 +74,9 @@ func main() {
   defer stop()
 
   mux := http.NewServeMux()
-  mux.HandleFunc("POST /api/", apiHandler)
-
   subFS, _ := fs.Sub(www, "www")
   mux.Handle("GET /", http.FileServer(http.FS(subFS)))
+  mux.HandleFunc("POST /api/", apiHandler)
 
   s := &http.Server {
     Addr: "0.0.0.0:8080",
@@ -91,8 +90,7 @@ func main() {
     log.Printf("Starting WebX (PID is %d) on http://%v...\n", os.Getpid(), s.Addr)
 
     if err := s.ListenAndServe(); err != http.ErrServerClosed {
-      log.Printf("Error: %v\n", err)
-      os.Exit(1) 
+      log.Fatalf("Error: %v\n", err)
     }
   }()
 
