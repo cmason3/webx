@@ -109,7 +109,8 @@ func wwwHandler(h http.Handler, tmpl *template.Template) http.Handler {
 func apiHandler(w http.ResponseWriter, r *http.Request) {
   if r.Header.Get("Content-Type") == "application/json" {
     if r.URL.Path == "/api/create" {
-      fmt.Fprintf(w, "Hello World\r\n")
+      w.Header().Set("Content-Type", "application/json")
+      fmt.Fprintf(w, "{}\n")
 
     } else {
       http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
