@@ -59,11 +59,15 @@ func (w *httpWriter) WriteHeader(statusCode int) {
   w.ResponseWriter.WriteHeader(w.statusCode)
 }
 
-func logRequest(h http.Handler) http.Handler {
+func logRequest(h http.Handler, xffPtr bool) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     _w := responseWriter(w)
     h.ServeHTTP(_w, r)
+
     host, _, _ := net.SplitHostPort(r.RemoteAddr)
+    if xffPtr && r.Header.Get("X-Forwarded-For") != "" {
+      host = r.Header.Get("X-Forwarded-For")
+    }
     log.Printf("[%s] {%d} %s %s %s\n", host, _w.statusCode, r.Method, r.URL.Path, r.Proto)
   })
 }
@@ -124,8 +128,9 @@ func main() {
   fmt.Fprintf(os.Stdout, "WebX v%s\n", Version)
   fmt.Fprintf(os.Stdout, "Copyright (c) 2025 Chris Mason <chris@netnix.org>\n\n")
 
-  lPtr := flag.String("l", "127.0.0.1", "listen address")
-  pPtr := flag.Int("p", 8080, "listen port")
+  lPtr := flag.String("l", "127.0.0.1", "Listen Address")
+  pPtr := flag.Int("p", 8080, "Listen Port")
+  xffPtr := flag.Bool("xff", false, "Use X-Forwarded-For")
   flag.Parse()
 
   sCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -139,7 +144,7 @@ func main() {
 
     s := &http.Server {
       Addr: fmt.Sprintf("%s:%d", *lPtr, *pPtr),
-      Handler: logRequest(mux),
+      Handler: logRequest(mux, *xffPtr),
       BaseContext: func(net.Listener) context.Context {
         return sCtx 
       },
