@@ -24,11 +24,14 @@ import (
   "log"
   "time"
   "embed"
+  "bytes"
   "io/fs"
+  "strings"
   "context"
   "syscall"
   "net/http"
   "os/signal"
+  "html/template"
 )
 
 var Version = "0.0.1"
@@ -39,30 +42,86 @@ type httpWriter struct {
   http.ResponseWriter
   statusCode int
 }
-
 func responseWriter(w http.ResponseWriter) *httpWriter {
   return &httpWriter { w, http.StatusOK }
 }
-
 func (w *httpWriter) WriteHeader(statusCode int) {
+  if statusCode != http.StatusOK {
+    for _, k := range []string {
+      "Cache-Control",
+      "ETag",
+    } {
+      w.ResponseWriter.Header().Del(k)
+    }
+  }
   w.statusCode = statusCode
-  w.ResponseWriter.WriteHeader(statusCode)
+  w.ResponseWriter.WriteHeader(w.statusCode)
 }
 
 func logRequest(h http.Handler) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     _w := responseWriter(w)
     h.ServeHTTP(_w, r)
-    log.Printf("[%s] %s %s %s {%d}\n", r.RemoteAddr, r.Method, r.URL.Path, r.Proto, _w.statusCode)
+    host, _, _ := net.SplitHostPort(r.RemoteAddr)
+    log.Printf("[%s] {%d} %s %s %s\n", host, _w.statusCode, r.Method, r.URL.Path, r.Proto)
+  })
+}
+
+func wwwHandler(h http.Handler, tmpl *template.Template) http.Handler {
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    if r.URL.Path == "/" {
+      r.URL.Path = "/index.html"
+    }
+    if r.Header.Get("If-None-Match") == Version {
+      w.WriteHeader(http.StatusNotModified)
+
+    } else {
+      if strings.HasPrefix(r.URL.Path, fmt.Sprintf("/%s/", Version)) {
+        r.URL.Path = strings.TrimPrefix(r.URL.Path[1:], Version)
+        w.Header().Set("Cache-Control", "max-age=31536000, immutable")
+
+      } else {
+        w.Header().Set("Cache-Control", "max-age=0, must-revalidate")
+        w.Header().Set("ETag", Version)
+      }
+
+      if t := tmpl.Lookup(r.URL.Path[1:]); t != nil {
+        var buf bytes.Buffer
+
+        data := map[string]string {
+          "Version": Version,
+        }
+
+        if err := t.Execute(&buf, data); err == nil {
+          w.Write(buf.Bytes())
+
+        } else {
+          http.Error(w, err.Error(), http.StatusInternalServerError)
+        }
+      } else {
+        h.ServeHTTP(w, r)
+      }
+    }
   })
 }
 
 func apiHandler(w http.ResponseWriter, r *http.Request) {
-  if r.URL.Path == "/api/create" {
-    fmt.Fprintf(w, "Hello World\r\n")
+  if r.Method == http.MethodGet {
+    w.Header().Set("Cache-Control", "no-store")
 
-  } else {
-    http.NotFound(w, r)
+    if r.URL.Path == "/api/create" {
+      fmt.Fprintf(w, "Hello World\r\n")
+
+    } else {
+      http.NotFound(w, r)
+    }
+  } else if r.Method == http.MethodPost {
+    if r.URL.Path == "/api/create" {
+      fmt.Fprintf(w, "Hello World\r\n")
+
+    } else {
+      http.NotFound(w, r)
+    }
   }
 }
 
@@ -75,30 +134,36 @@ func main() {
 
   mux := http.NewServeMux()
   subFS, _ := fs.Sub(www, "www")
-  mux.Handle("GET /", http.FileServer(http.FS(subFS)))
-  mux.HandleFunc("POST /api/", apiHandler)
+  if tmpl, err := template.ParseFS(subFS, "*.html"); err == nil {
+    mux.Handle("GET /", wwwHandler(http.FileServer(http.FS(subFS)), tmpl))
+    mux.HandleFunc("GET /api/", apiHandler)
+    mux.HandleFunc("POST /api/", apiHandler)
 
-  s := &http.Server {
-    Addr: "0.0.0.0:8080",
-    Handler: logRequest(mux),
-    BaseContext: func(net.Listener) context.Context {
-      return sCtx 
-    },
-  }
-
-  go func() {
-    log.Printf("Starting WebX (PID is %d) on http://%v...\n", os.Getpid(), s.Addr)
-
-    if err := s.ListenAndServe(); err != http.ErrServerClosed {
-      log.Fatalf("Error: %v\n", err)
+    s := &http.Server {
+      Addr: "0.0.0.0:8080",
+      Handler: logRequest(mux),
+      BaseContext: func(net.Listener) context.Context {
+        return sCtx 
+      },
     }
-  }()
 
-  <-sCtx.Done()
-  log.Printf("Caught Signal... Terminating...\n")
-  cCtx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
-  defer cancel()
+    go func() {
+      log.Printf("Starting WebX (PID is %d) on http://%v...\n", os.Getpid(), s.Addr)
 
-  s.Shutdown(cCtx)
+      if err := s.ListenAndServe(); err != http.ErrServerClosed {
+        log.Fatalf("Error: %v\n", err)
+      }
+    }()
+
+    <-sCtx.Done()
+    log.Printf("Caught Signal... Terminating...\n")
+    cCtx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+    defer cancel()
+
+    s.Shutdown(cCtx)
+
+  } else {
+    log.Fatalf("Error: %v\n", err)
+  }
 }
 
