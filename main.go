@@ -61,6 +61,8 @@ func (w *httpWriter) WriteHeader(statusCode int) {
 
 func logRequest(h http.Handler, xffPtr bool) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    var statusCode string
+
     _w := responseWriter(w)
     h.ServeHTTP(_w, r)
 
@@ -68,7 +70,17 @@ func logRequest(h http.Handler, xffPtr bool) http.Handler {
     if xffPtr && r.Header.Get("X-Forwarded-For") != "" {
       host = r.Header.Get("X-Forwarded-For")
     }
-    log.Printf("[%s] {%d} %s %s %s\n", host, _w.statusCode, r.Method, r.URL.Path, r.Proto)
+
+    if _w.statusCode >= 400 {
+      statusCode = fmt.Sprintf("\033[31m%d\033[0m", _w.statusCode)
+
+    } else if _w.statusCode >= 300 {
+      statusCode = fmt.Sprintf("\033[33m%d\033[0m", _w.statusCode)
+
+    } else {
+      statusCode = fmt.Sprintf("\033[32m%d\033[0m", _w.statusCode)
+    }
+    log.Printf("[%s] {%s} %s %s %s\n", host, statusCode, r.Method, r.URL.Path, r.Proto)
   })
 }
 
