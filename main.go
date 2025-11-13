@@ -1,5 +1,5 @@
 /*
- * WebX
+ * WebX - Under Development
  * Copyright (c) 2025 Chris Mason <chris@netnix.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -23,6 +23,7 @@ import (
   "net"
   "log"
   "time"
+  "flag"
   "embed"
   "bytes"
   "io/fs"
@@ -106,28 +107,25 @@ func wwwHandler(h http.Handler, tmpl *template.Template) http.Handler {
 }
 
 func apiHandler(w http.ResponseWriter, r *http.Request) {
-  if r.Method == http.MethodGet {
-    w.Header().Set("Cache-Control", "no-store")
-
+  if r.Header.Get("Content-Type") == "application/json" {
     if r.URL.Path == "/api/create" {
       fmt.Fprintf(w, "Hello World\r\n")
 
     } else {
-      http.NotFound(w, r)
+      http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
     }
-  } else if r.Method == http.MethodPost {
-    if r.URL.Path == "/api/create" {
-      fmt.Fprintf(w, "Hello World\r\n")
-
-    } else {
-      http.NotFound(w, r)
-    }
+  } else {
+    http.Error(w, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
   }
 }
 
 func main() {
   fmt.Fprintf(os.Stdout, "WebX v%s\n", Version)
   fmt.Fprintf(os.Stdout, "Copyright (c) 2025 Chris Mason <chris@netnix.org>\n\n")
+
+  lPtr := flag.String("l", "127.0.0.1", "listen address")
+  pPtr := flag.Int("p", 8080, "listen port")
+  flag.Parse()
 
   sCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
   defer stop()
@@ -136,11 +134,10 @@ func main() {
   subFS, _ := fs.Sub(www, "www")
   if tmpl, err := template.ParseFS(subFS, "*.html"); err == nil {
     mux.Handle("GET /", wwwHandler(http.FileServer(http.FS(subFS)), tmpl))
-    mux.HandleFunc("GET /api/", apiHandler)
     mux.HandleFunc("POST /api/", apiHandler)
 
     s := &http.Server {
-      Addr: "0.0.0.0:8080",
+      Addr: fmt.Sprintf("%s:%d", *lPtr, *pPtr),
       Handler: logRequest(mux),
       BaseContext: func(net.Listener) context.Context {
         return sCtx 
