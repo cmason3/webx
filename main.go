@@ -43,7 +43,7 @@ var Version = "0.0.1"
 var www embed.FS
 
 var logMutex sync.RWMutex
-var logs []string
+var logs = make([]string, 0, 10)
 
 type httpWriter struct {
   http.ResponseWriter
@@ -74,6 +74,11 @@ func slog(f string, a ...any) {
   m := fmt.Sprintf(f, a...)
   logMutex.Lock()
   logs = append(logs, fmt.Sprintf("[%s] %s", time.Now().Format(time.StampMilli), m))
+  fmt.Fprintf(os.Stdout, "1) Len: %d, Cap: %d\n", len(logs), cap(logs))
+  if len(logs) == cap(logs) {
+    logs = logs[5:] // FIXME: cap also goes to 5?
+    fmt.Fprintf(os.Stdout, "2) Len: %d, Cap: %d\n", len(logs), cap(logs))
+  }
   logMutex.Unlock()
   log.Print(m)
 }
@@ -115,6 +120,10 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
 
     for {
       logMutex.RLock()
+    
+      if len(logs) < n {
+        n = len(logs) - 1
+      }
       for i := n; i < len(logs); i, n = i+1, n+1 {
         if err := c.WriteMessage(websocket.TextMessage, []byte(logs[i])); err != nil {
           logMutex.RUnlock()
