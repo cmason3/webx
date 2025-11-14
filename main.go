@@ -24,6 +24,7 @@ import (
   "log"
   "time"
   "flag"
+  "sync"
   "embed"
   "bytes"
   "io/fs"
@@ -40,6 +41,9 @@ import (
 var Version = "0.0.1"
 //go:embed www
 var www embed.FS
+
+var logMutex sync.RWMutex
+var logs []string
 
 type httpWriter struct {
   http.ResponseWriter
@@ -66,6 +70,14 @@ func (w *httpWriter) WriteHeader(statusCode int) {
   w.ResponseWriter.WriteHeader(w.statusCode)
 }
 
+func slog(f string, a ...any) {
+  m := fmt.Sprintf(f, a...)
+  logMutex.Lock()
+  logs = append(logs, m)
+  logMutex.Unlock()
+  log.Print(m)
+}
+
 func logRequest(h http.Handler, xffPtr bool) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     var statusCode string
@@ -89,21 +101,27 @@ func logRequest(h http.Handler, xffPtr bool) http.Handler {
     } else {
       statusCode = fmt.Sprintf("\033[32m%d\033[0m", _w.statusCode)
     }
-    log.Printf("[%s] {%s} %s %s %s\n", _w.remoteHost, statusCode, r.Method, r.URL.Path, r.Proto)
+    slog("[%s] {%s} %s %s %s\n", _w.remoteHost, statusCode, r.Method, r.URL.Path, r.Proto)
   })
 }
 
 func logHandler(w http.ResponseWriter, r *http.Request) {
   if c, err := websocket.Upgrade(w, r, nil, 1024, 1024); err == nil {
     defer c.Close()
+    var n int
 
-    log.Printf("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[35m101\033[0m", r.Method, r.URL.Path, r.Proto)
+    slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[35m101\033[0m", r.Method, r.URL.Path, r.Proto)
 
-    for i := 0; i < 5; i++ {
-      if err := c.WriteMessage(websocket.TextMessage, []byte("Hello World")); err != nil {
-        break
+    for {
+      logMutex.RLock()
+      for i := n; i < len(logs); i, n = i+1, n+1 {
+        if err := c.WriteMessage(websocket.TextMessage, []byte(logs[i])); err != nil {
+          logMutex.RUnlock()
+          return
+        }
       }
-      time.Sleep(2 * time.Second)
+      logMutex.RUnlock()
+      time.Sleep(time.Second)
     }
   } else {
     http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -190,7 +208,7 @@ func main() {
     }
 
     go func() {
-      log.Printf("Starting WebX (PID is %d) on http://%v...\n", os.Getpid(), s.Addr)
+      slog("Starting WebX (PID is %d) on http://%v...\n", os.Getpid(), s.Addr)
 
       if err := s.ListenAndServe(); err != http.ErrServerClosed {
         log.Fatalf("Error: %v\n", err)
@@ -198,7 +216,7 @@ func main() {
     }()
 
     <-sCtx.Done()
-    log.Printf("Caught Signal... Terminating...\n")
+    slog("Caught Signal... Terminating...\n")
     cCtx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
     defer cancel()
 
