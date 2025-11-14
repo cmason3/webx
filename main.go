@@ -33,6 +33,7 @@ import (
   "net/http"
   "os/signal"
   "html/template"
+  "github.com/gorilla/websocket"
 )
 
 var Version = "0.0.1"
@@ -82,6 +83,23 @@ func logRequest(h http.Handler, xffPtr bool) http.Handler {
     }
     log.Printf("[%s] {%s} %s %s %s\n", host, statusCode, r.Method, r.URL.Path, r.Proto)
   })
+}
+
+func logHandler(w http.ResponseWriter, r *http.Request) {
+  var u = websocket.Upgrader {
+    ReadBufferSize: 1024,
+    WriteBufferSize: 1024,
+  }
+
+  if c, err := u.Upgrade(w, r, nil); err == nil {
+    defer c.Close()
+
+    if err := c.WriteMessage(websocket.TextMessage, []byte("Hello World")); err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
+  } else {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+  }
 }
 
 func wwwHandler(h http.Handler, tmpl *template.Template) http.Handler {
@@ -152,6 +170,7 @@ func main() {
   subFS, _ := fs.Sub(www, "www")
   if tmpl, err := template.ParseFS(subFS, "*.html"); err == nil {
     mux.Handle("GET /", wwwHandler(http.FileServer(http.FS(subFS)), tmpl))
+    // mux.HandleFunc("GET /logs", logHandler)
     mux.HandleFunc("POST /api/", apiHandler)
 
     s := &http.Server {
