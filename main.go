@@ -27,6 +27,7 @@ import (
   "embed"
   "bytes"
   "io/fs"
+  "bufio"
   "strings"
   "context"
   "syscall"
@@ -42,10 +43,15 @@ var www embed.FS
 
 type httpWriter struct {
   http.ResponseWriter
+  remoteHost string
   statusCode int
 }
 func responseWriter(w http.ResponseWriter) *httpWriter {
-  return &httpWriter { w, http.StatusOK }
+  return &httpWriter { w, "", http.StatusOK }
+}
+func (w *httpWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+  hj, _ := w.ResponseWriter.(http.Hijacker)
+  return hj.Hijack()
 }
 func (w *httpWriter) WriteHeader(statusCode int) {
   if statusCode != http.StatusOK {
@@ -65,12 +71,14 @@ func logRequest(h http.Handler, xffPtr bool) http.Handler {
     var statusCode string
 
     _w := responseWriter(w)
-    h.ServeHTTP(_w, r)
-
-    host, _, _ := net.SplitHostPort(r.RemoteAddr)
+    remoteHost, _, _ := net.SplitHostPort(r.RemoteAddr)
     if xffPtr && r.Header.Get("X-Forwarded-For") != "" {
-      host = r.Header.Get("X-Forwarded-For")
+      _w.remoteHost = r.Header.Get("X-Forwarded-For")
+
+    } else {
+      _w.remoteHost = remoteHost
     }
+    h.ServeHTTP(_w, r)
 
     if _w.statusCode >= 400 {
       statusCode = fmt.Sprintf("\033[31m%d\033[0m", _w.statusCode)
@@ -81,21 +89,21 @@ func logRequest(h http.Handler, xffPtr bool) http.Handler {
     } else {
       statusCode = fmt.Sprintf("\033[32m%d\033[0m", _w.statusCode)
     }
-    log.Printf("[%s] {%s} %s %s %s\n", host, statusCode, r.Method, r.URL.Path, r.Proto)
+    log.Printf("[%s] {%s} %s %s %s\n", _w.remoteHost, statusCode, r.Method, r.URL.Path, r.Proto)
   })
 }
 
 func logHandler(w http.ResponseWriter, r *http.Request) {
-  var u = websocket.Upgrader {
-    ReadBufferSize: 1024,
-    WriteBufferSize: 1024,
-  }
-
-  if c, err := u.Upgrade(w, r, nil); err == nil {
+  if c, err := websocket.Upgrade(w, r, nil, 1024, 1024); err == nil {
     defer c.Close()
 
-    if err := c.WriteMessage(websocket.TextMessage, []byte("Hello World")); err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
+    log.Printf("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[35m101\033[0m", r.Method, r.URL.Path, r.Proto)
+
+    for i := 0; i < 5; i++ {
+      if err := c.WriteMessage(websocket.TextMessage, []byte("Hello World")); err != nil {
+        break
+      }
+      time.Sleep(2 * time.Second)
     }
   } else {
     http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -170,7 +178,7 @@ func main() {
   subFS, _ := fs.Sub(www, "www")
   if tmpl, err := template.ParseFS(subFS, "*.html"); err == nil {
     mux.Handle("GET /", wwwHandler(http.FileServer(http.FS(subFS)), tmpl))
-    // mux.HandleFunc("GET /logs", logHandler)
+    mux.HandleFunc("GET /logs", logHandler)
     mux.HandleFunc("POST /api/", apiHandler)
 
     s := &http.Server {
