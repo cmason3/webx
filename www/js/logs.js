@@ -13,20 +13,21 @@
     return str.replace('\033[0m', '</span>');
   }
 
+  function add(str) {
+    var atBottom = Math.ceil(window.innerHeight + window.scrollY) >= document.body.offsetHeight;
+    document.getElementById('logs').innerHTML += recolour(quote(str));
+    if (atBottom) {
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+  }
+
   window.addEventListener('load', (e) => {
     var url = new URL('/logs', window.location.href);
     url.protocol = url.protocol.replace('http', 'ws');
     var ws = new WebSocket(url);
 
-    ws.addEventListener('error', () => {
-      document.getElementById('logs').innerHTML = 'Unable to Connect';
-    });
-    ws.addEventListener('message', (e) => {
-      document.getElementById('logs').innerHTML += recolour(quote(e.data));
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    });
-    ws.addEventListener('close', () => {
-      document.getElementById('logs').innerHTML = 'Connection Closed';
-    });
+    ws.addEventListener('error', () => { add('Unable to Connect') });
+    ws.addEventListener('message', (e) => { add(e.data) });
+    ws.addEventListener('close', () => { add('Connection Closed') });
   });
 })();
