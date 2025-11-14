@@ -73,7 +73,7 @@ func (w *httpWriter) WriteHeader(statusCode int) {
 func slog(f string, a ...any) {
   m := fmt.Sprintf(f, a...)
   logMutex.Lock()
-  logs = append(logs, m)
+  logs = append(logs, fmt.Sprintf("[%s] %s", time.Now().Format(time.StampMilli), m))
   logMutex.Unlock()
   log.Print(m)
 }
@@ -108,6 +108,7 @@ func logRequest(h http.Handler, xffPtr bool) http.Handler {
 func logHandler(w http.ResponseWriter, r *http.Request) {
   if c, err := websocket.Upgrade(w, r, nil, 1024, 1024); err == nil {
     defer c.Close()
+    var lastMessage int64
     var n int
 
     slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[35m101\033[0m", r.Method, r.URL.Path, r.Proto)
@@ -119,8 +120,13 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
           logMutex.RUnlock()
           return
         }
+        lastMessage = time.Now().Unix()
       }
       logMutex.RUnlock()
+      if (time.Now().Unix() - lastMessage) > 30 {
+        c.WriteMessage(websocket.TextMessage, []byte(""))
+        lastMessage = time.Now().Unix()
+      }
       time.Sleep(time.Second)
     }
   } else {
