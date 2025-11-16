@@ -74,10 +74,10 @@ func slog(f string, a ...any) {
   m := fmt.Sprintf(f, a...)
   logMutex.Lock()
   logs = append(logs, fmt.Sprintf("[%s] %s", time.Now().Format(time.StampMilli), m))
-  fmt.Fprintf(os.Stdout, "1) Len: %d, Cap: %d\n", len(logs), cap(logs))
   if len(logs) == cap(logs) {
-    logs = logs[5:] // FIXME: cap also goes to 5?
-    fmt.Fprintf(os.Stdout, "2) Len: %d, Cap: %d\n", len(logs), cap(logs))
+    i := int(cap(logs) / 2)
+    copy(logs[0:], logs[i:])
+    logs = logs[:i]
   }
   logMutex.Unlock()
   log.Print(m)
@@ -97,26 +97,29 @@ func logRequest(h http.Handler, xffPtr bool) http.Handler {
     }
     h.ServeHTTP(_w, r)
 
-    if _w.statusCode >= 400 {
-      statusCode = fmt.Sprintf("\033[31m%d\033[0m", _w.statusCode)
+    if _w.statusCode > 0 {
+      if _w.statusCode >= 400 {
+        statusCode = fmt.Sprintf("\033[31m%d\033[0m", _w.statusCode)
 
-    } else if _w.statusCode >= 300 {
-      statusCode = fmt.Sprintf("\033[33m%d\033[0m", _w.statusCode)
+      } else if _w.statusCode >= 300 {
+        statusCode = fmt.Sprintf("\033[33m%d\033[0m", _w.statusCode)
 
-    } else {
-      statusCode = fmt.Sprintf("\033[32m%d\033[0m", _w.statusCode)
+      } else {
+        statusCode = fmt.Sprintf("\033[32m%d\033[0m", _w.statusCode)
+      }
+      slog("[%s] {%s} %s %s %s\n", _w.remoteHost, statusCode, r.Method, r.URL.Path, r.Proto)
     }
-    slog("[%s] {%s} %s %s %s\n", _w.remoteHost, statusCode, r.Method, r.URL.Path, r.Proto)
   })
 }
 
 func logHandler(w http.ResponseWriter, r *http.Request) {
   if c, err := websocket.Upgrade(w, r, nil, 1024, 1024); err == nil {
     defer c.Close()
-    var lastMessage int64
+    var lastMessage time.Time
     var n int
 
     slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[35m101\033[0m", r.Method, r.URL.Path, r.Proto)
+    w.(*httpWriter).statusCode = 0
 
     for {
       logMutex.RLock()
@@ -129,12 +132,14 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
           logMutex.RUnlock()
           return
         }
-        lastMessage = time.Now().Unix()
+        lastMessage = time.Now()
       }
       logMutex.RUnlock()
-      if (time.Now().Unix() - lastMessage) > 30 {
-        c.WriteMessage(websocket.TextMessage, []byte(""))
-        lastMessage = time.Now().Unix()
+      if time.Since(lastMessage).Seconds() >= 20 {
+        if err := c.WriteMessage(websocket.PingMessage, []byte("PING")); err != nil {
+          return
+        }
+        lastMessage = time.Now()
       }
       time.Sleep(time.Second)
     }
@@ -196,8 +201,13 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-  fmt.Fprintf(os.Stdout, "WebX v%s\n", Version)
-  fmt.Fprintf(os.Stdout, "Copyright (c) 2025 Chris Mason <chris@netnix.org>\n\n")
+  if _, defined := os.LookupEnv("JOURNAL_STREAM"); !defined {
+    fmt.Fprintf(os.Stdout, "WebX v%s\n", Version)
+    fmt.Fprintf(os.Stdout, "Copyright (c) 2025 Chris Mason <chris@netnix.org>\n\n")
+
+  } else {
+    log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
+  }
 
   lPtr := flag.String("l", "127.0.0.1", "Listen Address")
   pPtr := flag.Int("p", 8080, "Listen Port")
