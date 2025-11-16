@@ -43,7 +43,7 @@ var Version = "0.0.1"
 var www embed.FS
 
 var logMutex sync.RWMutex
-var logs = make([]string, 0, 10)
+var logs = make([]string, 0, 1024)
 
 type httpWriter struct {
   http.ResponseWriter
