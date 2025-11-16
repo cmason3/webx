@@ -38,10 +38,10 @@ import (
   "github.com/gorilla/websocket"
 )
 
-var Version = "0.0.1"
+const Version = "0.0.1"
+
 //go:embed www
 var www embed.FS
-
 var logMutex sync.RWMutex
 var logs = make([]string, 0, 1024)
 
