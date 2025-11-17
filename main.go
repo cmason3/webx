@@ -113,6 +113,10 @@ func logRequest(h http.Handler, xffPtr bool) http.Handler {
 }
 
 func logHandler(w http.ResponseWriter, r *http.Request) {
+  if cookie, err := r.Cookie("Authentication-Token"); err != nil || cookie.Value != "XYZ" {
+    w.WriteHeader(http.StatusUnauthorized) // THIS DOESN'T WORK!
+    return
+  }
   if c, err := websocket.Upgrade(w, r, nil, 1024, 1024); err == nil {
     defer c.Close()
     var lastMessage time.Time

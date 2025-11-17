@@ -24,6 +24,7 @@
   window.addEventListener('load', (e) => {
     var url = new URL('/logs', window.location.href);
     url.protocol = url.protocol.replace('http', 'ws');
+    document.cookie = 'Authentication-Token=XYZ; max-age=5; path=/';
     var ws = new WebSocket(url);
     var lastPongMessage = 0;
     var lastMessage = 0;
@@ -47,7 +48,7 @@
         ws.send('PONG');
       }
     });
-    ws.addEventListener('error', () => { add('Unable to Connect') });
+    ws.addEventListener('error', (e) => { add('Unable to Connect') });
     ws.addEventListener('close', () => { add('Connection Closed') });
   });
 })();
