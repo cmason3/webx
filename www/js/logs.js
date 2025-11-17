@@ -25,9 +25,29 @@
     var url = new URL('/logs', window.location.href);
     url.protocol = url.protocol.replace('http', 'ws');
     var ws = new WebSocket(url);
+    var lastPongMessage = 0;
+    var lastMessage = 0;
 
+    ws.addEventListener('open', () => {
+      var h = setInterval(() => {
+        if ((Date.now() - lastMessage) > 60000) {
+          clearInterval(h);
+          ws.close();
+        }
+      }, 6000);
+    });
+    ws.addEventListener('message', (e) => {
+      lastMessage = Date.now();
+
+      if (e.data != 'PING') {
+        add(e.data) 
+      }
+      if ((lastMessage - lastPongMessage) >= 20000) {
+        lastPongMessage = lastMessage;
+        ws.send('PONG');
+      }
+    });
     ws.addEventListener('error', () => { add('Unable to Connect') });
-    ws.addEventListener('message', (e) => { add(e.data) });
     ws.addEventListener('close', () => { add('Connection Closed') });
   });
 })();

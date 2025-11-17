@@ -121,6 +121,16 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
     slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[35m101\033[0m", r.Method, r.URL.Path, r.Proto)
     w.(*httpWriter).statusCode = 0
 
+    go func() {
+      for {
+        c.SetReadDeadline(time.Now().Add(time.Minute))
+        if _, _, err := c.NextReader(); err != nil {
+          c.Close()
+          break
+        }
+      }
+    }()
+
     for {
       logMutex.RLock()
     
@@ -136,7 +146,7 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
       }
       logMutex.RUnlock()
       if time.Since(lastMessage).Seconds() >= 20 {
-        if err := c.WriteMessage(websocket.PingMessage, []byte("PING")); err != nil {
+        if err := c.WriteMessage(websocket.TextMessage, []byte("PING")); err != nil {
           return
         }
         lastMessage = time.Now()
