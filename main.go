@@ -85,8 +85,6 @@ func slog(f string, a ...any) {
 
 func logRequest(h http.Handler, xffPtr bool) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-    var statusCode string
-
     _w := responseWriter(w)
     remoteHost, _, _ := net.SplitHostPort(r.RemoteAddr)
     if xffPtr && r.Header.Get("X-Forwarded-For") != "" {
@@ -98,6 +96,8 @@ func logRequest(h http.Handler, xffPtr bool) http.Handler {
     h.ServeHTTP(_w, r)
 
     if _w.statusCode > 0 {
+      var statusCode string
+
       if _w.statusCode >= 400 {
         statusCode = fmt.Sprintf("\033[31m%d\033[0m", _w.statusCode)
 
