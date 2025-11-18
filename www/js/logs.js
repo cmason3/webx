@@ -17,7 +17,7 @@
 
   function add(str) {
     var atBottom = Math.ceil(window.innerHeight + window.scrollY) >= document.body.offsetHeight;
-    document.getElementById('logs').innerHTML += ansiToRGB(quote(str));
+    document.querySelector('pre').innerHTML += ansiToRGB(quote(str));
     if (atBottom) {
       window.scrollTo(0, document.body.scrollHeight);
     }
@@ -31,6 +31,15 @@
     var lastMessage = 0;
     var statusCode = 0;
 
+    document.getElementById('token').addEventListener('keyup', (e) => {
+      if ((e.key === 'Enter') && (e.target.value.length > 0)) {
+        document.querySelector('dialog').close();
+        document.cookie = 'Authentication-Token=' + document.getElementById('token').value + '; max-age=86400; path=/';
+        document.getElementById('token').value = '';
+        window.dispatchEvent(new Event('load'))
+      }
+    });
+
     ws.addEventListener('open', () => {
       var h = setInterval(() => {
         if ((Date.now() - lastMessage) > 60000) {
@@ -39,13 +48,14 @@
         }
       }, 6000);
     });
+
     ws.addEventListener('message', (e) => {
       if (statusCode === 0) {
         statusCode = parseInt(e.data.split(' ')[0]);
 
         if (statusCode === 401) {
-          document.cookie = 'Authentication-Token=' + prompt('Authentication Token') + '; max-age=86400; path=/';
-          window.dispatchEvent(new Event('load'))
+          document.querySelector('dialog').showModal();
+          ws.close();
         }
       }
       else {
@@ -60,10 +70,12 @@
         }
       }
     });
+
     ws.addEventListener('error', (e) => {
       add('Unable to Connect');
       ws.close();
     });
+
     ws.addEventListener('close', () => {
       if (statusCode === 200) {
         add('Connection Closed')
