@@ -43,7 +43,7 @@ const Version = "0.0.1"
 //go:embed www
 var www embed.FS
 var logMutex sync.RWMutex
-var logs = make([]string, 0, 1024)
+var logs = make([]string, 0, 512)
 
 type httpWriter struct {
   http.ResponseWriter
