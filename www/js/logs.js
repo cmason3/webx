@@ -6,10 +6,12 @@
   }
 
   function recolour(str) {
-    str = str.replace('\033[31m', '<span style="color: rgb(239, 100, 135);">');
-    str = str.replace('\033[32m', '<span style="color: rgb(94, 202, 137);">');
-    str = str.replace('\033[33m', '<span style="color: rgb(253, 216, 119);">');
-    str = str.replace('\033[35m', '<span style="color: rgb(170, 127, 240);">');
+    str = str.replace('\033[31m', '<span style="color: rgb(239, 100, 135);">'); // Red
+    str = str.replace('\033[32m', '<span style="color: rgb(94, 202, 137);">'); // Green
+    str = str.replace('\033[33m', '<span style="color: rgb(253, 216, 119);">'); // Yellow
+    str = str.replace('\033[34m', '<span style="color: rgb(101, 174, 247);">'); // Blue
+    str = str.replace('\033[35m', '<span style="color: rgb(170, 127, 240);">'); // Magenta
+    str = str.replace('\033[36m', '<span style="color: rgb(67, 193, 190);">'); // Cyan
     return str.replace('\033[0m', '</span>');
   }
 
@@ -43,7 +45,7 @@
 
         if (statusCode === 401) {
           document.cookie = 'Authentication-Token=' + prompt('Authentication Token') + '; max-age=86400; path=/';
-          window.location.reload();
+          window.dispatchEvent(new Event('load'))
         }
       }
       else {

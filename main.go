@@ -126,7 +126,7 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
       return
 
     } else {
-      slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[35m101\033[0m", r.Method, r.URL.Path, r.Proto)
+      slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[34m101\033[0m", r.Method, r.URL.Path, r.Proto)
       if err := c.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%d %s", http.StatusOK, http.StatusText(http.StatusOK)))); err != nil {
         return
       }
