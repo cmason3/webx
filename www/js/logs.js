@@ -5,7 +5,7 @@
     return str.replace(/</g, '&lt;');
   }
 
-  function recolour(str) {
+  function ansiToRGB(str) {
     str = str.replace('\033[31m', '<span style="color: rgb(239, 100, 135);">'); // Red
     str = str.replace('\033[32m', '<span style="color: rgb(94, 202, 137);">'); // Green
     str = str.replace('\033[33m', '<span style="color: rgb(253, 216, 119);">'); // Yellow
@@ -17,7 +17,7 @@
 
   function add(str) {
     var atBottom = Math.ceil(window.innerHeight + window.scrollY) >= document.body.offsetHeight;
-    document.getElementById('logs').innerHTML += recolour(quote(str));
+    document.getElementById('logs').innerHTML += ansiToRGB(quote(str));
     if (atBottom) {
       window.scrollTo(0, document.body.scrollHeight);
     }
