@@ -11,5 +11,6 @@ dialog {
   input {
     padding: 10px;
   }
+  font-size: x-large;
   color: white;
 }

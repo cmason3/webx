@@ -120,7 +120,7 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
 
     w.(*httpWriter).statusCode = 0
 
-    if cookie, err := r.Cookie("Authentication-Token"); err != nil || cookie.Value != "XYZ" {
+    if cookie, err := r.Cookie("Authentication-Token"); err != nil || cookie.Value != "XYZx" {
       slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[31m401\033[0m", r.Method, r.URL.Path, r.Proto)
       c.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))))
       return
