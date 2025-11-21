@@ -112,60 +112,62 @@ func logRequest(h http.Handler, xffPtr bool) http.Handler {
   })
 }
 
-func logHandler(w http.ResponseWriter, r *http.Request) {
-  if c, err := websocket.Upgrade(w, r, nil, 1024, 1024); err == nil {
-    defer c.Close()
-    var lastMessage time.Time
-    var n int
+func logHandler(webLogToken string) func(http.ResponseWriter, *http.Request) {
+  return func(w http.ResponseWriter, r *http.Request) {
+    if c, err := websocket.Upgrade(w, r, nil, 1024, 1024); err == nil {
+      defer c.Close()
+      var lastMessage time.Time
+      var n int
 
-    w.(*httpWriter).statusCode = 0
+      w.(*httpWriter).statusCode = 0
 
-    if cookie, err := r.Cookie("Authentication-Token"); err != nil || cookie.Value != "XYZ" {
-      slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[31m401\033[0m", r.Method, r.URL.Path, r.Proto)
-      c.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))))
-      return
-
-    } else {
-      slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[34m101\033[0m", r.Method, r.URL.Path, r.Proto)
-      if err := c.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%d %s", http.StatusOK, http.StatusText(http.StatusOK)))); err != nil {
+      if cookie, err := r.Cookie("Authentication-Token"); err != nil || cookie.Value != webLogToken {
+        slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[31m401\033[0m", r.Method, r.URL.Path, r.Proto)
+        c.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))))
         return
-      }
-    }
 
-    go func() {
+      } else {
+        slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[34m101\033[0m", r.Method, r.URL.Path, r.Proto)
+        if err := c.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%d %s", http.StatusOK, http.StatusText(http.StatusOK)))); err != nil {
+          return
+        }
+      }
+
+      go func() {
+        for {
+          c.SetReadDeadline(time.Now().Add(time.Minute))
+          if _, _, err := c.NextReader(); err != nil {
+            c.Close()
+            break
+          }
+        }
+      }()
+
       for {
-        c.SetReadDeadline(time.Now().Add(time.Minute))
-        if _, _, err := c.NextReader(); err != nil {
-          c.Close()
-          break
-        }
-      }
-    }()
+        logMutex.RLock()
 
-    for {
-      logMutex.RLock()
-
-      if len(logs) < n {
-        n = len(logs) - 1
-      }
-      for i := n; i < len(logs); i, n = i+1, n+1 {
-        if err := c.WriteMessage(websocket.TextMessage, []byte(logs[i])); err != nil {
-          logMutex.RUnlock()
-          return
+        if len(logs) < n {
+          n = len(logs) - 1
         }
-        lastMessage = time.Now()
-      }
-      logMutex.RUnlock()
-      if time.Since(lastMessage).Seconds() >= 20 {
-        if err := c.WriteMessage(websocket.TextMessage, []byte("PING")); err != nil {
-          return
+        for i := n; i < len(logs); i, n = i+1, n+1 {
+          if err := c.WriteMessage(websocket.TextMessage, []byte(logs[i])); err != nil {
+            logMutex.RUnlock()
+            return
+          }
+          lastMessage = time.Now()
         }
-        lastMessage = time.Now()
+        logMutex.RUnlock()
+        if time.Since(lastMessage).Seconds() >= 20 {
+          if err := c.WriteMessage(websocket.TextMessage, []byte("PING")); err != nil {
+            return
+          }
+          lastMessage = time.Now()
+        }
+        time.Sleep(time.Second)
       }
-      time.Sleep(time.Second)
+    } else {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
     }
-  } else {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
   }
 }
 
@@ -233,6 +235,7 @@ func main() {
   lPtr := flag.String("l", "127.0.0.1", "Listen Address")
   pPtr := flag.Int("p", 8080, "Listen Port")
   xffPtr := flag.Bool("xff", false, "Use X-Forwarded-For")
+  logPtr := flag.Bool("weblog", false, "Enable /logs.html (Uses WEBX_WEBLOG_TOKEN)")
   flag.Parse()
 
   sCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -242,8 +245,19 @@ func main() {
   subFS, _ := fs.Sub(www, "www")
   if tmpl, err := template.ParseFS(subFS, "*.html"); err == nil {
     mux.Handle("GET /", wwwHandler(http.FileServer(http.FS(subFS)), tmpl))
-    mux.HandleFunc("GET /logs", logHandler)
     mux.HandleFunc("POST /api/", apiHandler)
+
+    if *logPtr {
+      if webLogToken, defined := os.LookupEnv("WEBX_WEBLOG_TOKEN"); defined {
+        mux.HandleFunc("GET /logs", logHandler(webLogToken))
+
+      } else {
+        fmt.Fprintf(os.Stdout, "Error: Environment WEBX_WEBLOG_TOKEN is not defined\n")
+        os.Exit(1)
+      }
+    } else {
+      mux.HandleFunc("GET /logs.html", http.NotFound)
+    }
 
     s := &http.Server {
       Addr: fmt.Sprintf("%s:%d", *lPtr, *pPtr),
@@ -269,7 +283,8 @@ func main() {
     s.Shutdown(cCtx)
 
   } else {
-    log.Fatalf("Error: %v\n", err)
+    fmt.Fprintf(os.Stdout, "Error: %v\n", err)
+    os.Exit(1)
   }
 }
 
