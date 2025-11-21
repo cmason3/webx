@@ -24,62 +24,71 @@
   }
 
   window.addEventListener('load', (e) => {
-    var url = new URL('/logs', window.location.href);
-    url.protocol = url.protocol.replace('http', 'ws');
-    var ws = new WebSocket(url);
     var lastPongMessage = 0;
     var lastMessage = 0;
-    var statusCode = 0;
 
-    document.getElementById('token').addEventListener('keyup', (e) => {
-      if ((e.key === 'Enter') && (e.target.value.length > 0)) {
-        document.querySelector('dialog').close();
-        document.cookie = 'Authentication-Token=' + document.getElementById('token').value + '; max-age=86400; path=/';
-        document.getElementById('token').value = '';
-        window.dispatchEvent(new Event('load'))
-      }
-    });
+    function connect() {
+      var url = new URL('/logs', window.location.href);
+      url.protocol = url.protocol.replace('http', 'ws');
+      var ws = new WebSocket(url);
+      var statusCode = 0;
 
-    ws.addEventListener('open', () => {
-      var h = setInterval(() => {
-        if ((Date.now() - lastMessage) > 60000) {
-          clearInterval(h);
-          ws.close();
+      ws.addEventListener('open', () => {
+        var h = setInterval(() => {
+          if ((Date.now() - lastMessage) > 60000) {
+            clearInterval(h);
+            ws.close();
+          }
+        }, 6000);
+      });
+
+      ws.addEventListener('message', (e) => {
+        if (statusCode === 0) {
+          statusCode = parseInt(e.data.split(' ')[0]);
+
+          if (statusCode === 401) {
+            mtoken.show();
+            ws.close();
+          }
         }
-      }, 6000);
-    });
+        else {
+          lastMessage = Date.now();
 
-    ws.addEventListener('message', (e) => {
-      if (statusCode === 0) {
-        statusCode = parseInt(e.data.split(' ')[0]);
-
-        if (statusCode === 401) {
-          document.querySelector('dialog').showModal();
-          ws.close();
+          if (e.data != 'PING') {
+            add(e.data) 
+          }
+          if ((lastMessage - lastPongMessage) >= 20000) {
+            lastPongMessage = lastMessage;
+            ws.send('PONG');
+          }
         }
-      }
-      else {
-        lastMessage = Date.now();
+      });
 
-        if (e.data != 'PING') {
-          add(e.data) 
+      ws.addEventListener('error', (e) => {
+        add('Unable to Connect');
+        ws.close();
+      });
+
+      ws.addEventListener('close', () => {
+        if (statusCode === 200) {
+          add('Connection Closed')
         }
-        if ((lastMessage - lastPongMessage) >= 20000) {
-          lastPongMessage = lastMessage;
-          ws.send('PONG');
-        }
-      }
+      });
+    }
+
+    var mtoken = new bootstrap.Modal(document.getElementById('mtoken'), { keyboard: false });
+    document.getElementById('mtoken').addEventListener('shown.bs.modal', (e) => {
+      document.getElementById('token').focus();
     });
 
-    ws.addEventListener('error', (e) => {
-      add('Unable to Connect');
-      ws.close();
+    document.getElementById('ftoken').addEventListener('submit', (e) => {
+      document.cookie = 'Authentication-Token=' + document.getElementById('token').value + '; max-age=86400; path=/';
+      document.getElementById('token').value = '';
+      e.preventDefault();
+      mtoken.hide();
+      connect();
     });
 
-    ws.addEventListener('close', () => {
-      if (statusCode === 200) {
-        add('Connection Closed')
-      }
-    });
+    connect();
   });
 })();

@@ -3,14 +3,8 @@ body {
   background: rgb(41, 40, 59);
 }
 pre {
+  font-size: small;
   line-height: 1.8;
   white-space: pre-wrap;
   word-break: break-all;
-}
-dialog {
-  input {
-    padding: 10px;
-  }
-  font-size: x-large;
-  color: white;
 }
