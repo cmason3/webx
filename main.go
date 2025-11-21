@@ -235,7 +235,7 @@ func main() {
   lPtr := flag.String("l", "127.0.0.1", "Listen Address")
   pPtr := flag.Int("p", 8080, "Listen Port")
   xffPtr := flag.Bool("xff", false, "Use X-Forwarded-For")
-  logPtr := flag.Bool("weblog", false, "Enable /logs.html (Uses WEBX_WEBLOG_TOKEN)")
+  webLogPtr := flag.Bool("weblog", false, "Enable /logs.html (Uses WEBX_WEBLOG_TOKEN)")
   flag.Parse()
 
   sCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -247,7 +247,7 @@ func main() {
     mux.Handle("GET /", wwwHandler(http.FileServer(http.FS(subFS)), tmpl))
     mux.HandleFunc("POST /api/", apiHandler)
 
-    if *logPtr {
+    if *webLogPtr {
       if webLogToken, defined := os.LookupEnv("WEBX_WEBLOG_TOKEN"); defined {
         mux.HandleFunc("GET /logs", logHandler(webLogToken))
 
