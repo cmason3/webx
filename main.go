@@ -191,6 +191,9 @@ func wwwHandler(h http.Handler, tmpl *template.Template, eTag string) http.Handl
 
         if eTag == Version {
           w.Header().Set("Cache-Control", "max-age=31536000, immutable")
+
+        } else {
+          w.Header().Set("Cache-Control", "max-age=0, no-store")
         }
       } else {
         w.Header().Set("Cache-Control", "max-age=0, must-revalidate")
