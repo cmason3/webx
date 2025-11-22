@@ -84,7 +84,7 @@
     });
 
     document.getElementById('ftoken').addEventListener('submit', (e) => {
-      document.cookie = 'Authentication-Token=' + document.getElementById('token').value + '; max-age=86400; path=/';
+      document.cookie = 'Auth-Token=' + document.getElementById('token').value + '; max-age=86400; path=/';
       document.getElementById('token').value = '';
       e.preventDefault();
       mtoken.hide();
