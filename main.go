@@ -107,7 +107,7 @@ func logRequest(h http.Handler, xffPtr bool) http.Handler {
       } else {
         statusCode = fmt.Sprintf("\033[32m%d\033[0m", _w.statusCode)
       }
-      slog("[%s] {%s} %s %s %s\n", _w.remoteHost, statusCode, r.Method, r.URL.Path, r.Proto)
+      slog("[%s] {%s} %s %s\n", _w.remoteHost, statusCode, r.Method, r.URL.Path)
     }
   })
 }
@@ -122,12 +122,12 @@ func logHandler(webLogToken string) func(http.ResponseWriter, *http.Request) {
       w.(*httpWriter).statusCode = 0
 
       if cookie, err := r.Cookie("Authentication-Token"); err != nil || cookie.Value != webLogToken {
-        slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[31m401\033[0m", r.Method, r.URL.Path, r.Proto)
+        slog("[%s] {%s} %s %s\n", w.(*httpWriter).remoteHost, "\033[31m401\033[0m", r.Method, r.URL.Path)
         c.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))))
         return
 
       } else {
-        slog("[%s] {%s} %s %s %s\n", w.(*httpWriter).remoteHost, "\033[34m101\033[0m", r.Method, r.URL.Path, r.Proto)
+        slog("[%s] {%s} %s %s\n", w.(*httpWriter).remoteHost, "\033[34m101\033[0m", r.Method, r.URL.Path)
         if err := c.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%d %s", http.StatusOK, http.StatusText(http.StatusOK)))); err != nil {
           return
         }
