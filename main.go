@@ -182,14 +182,16 @@ func wwwHandler(h http.Handler, tmpl *template.Template, eTag string) http.Handl
       r.URL.Path = "/index.html"
     }
 
-    if r.Header.Get("If-None-Match") == eTag {
+    if (eTag == Version) && (r.Header.Get("If-None-Match") == eTag) {
       w.WriteHeader(http.StatusNotModified)
 
     } else {
       if strings.HasPrefix(r.URL.Path, fmt.Sprintf("/%s/", eTag)) {
         r.URL.Path = strings.TrimPrefix(r.URL.Path[1:], eTag)
-        w.Header().Set("Cache-Control", "max-age=31536000, immutable")
 
+        if eTag == Version {
+          w.Header().Set("Cache-Control", "max-age=31536000, immutable")
+        }
       } else {
         w.Header().Set("Cache-Control", "max-age=0, must-revalidate")
         w.Header().Set("ETag", eTag)
