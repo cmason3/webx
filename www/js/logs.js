@@ -64,14 +64,14 @@
         }
       });
 
-      ws.addEventListener('error', (e) => {
-        add('Unable to Connect');
+      ws.addEventListener('error', () => {
+        add('Connection Failed - Unknown Error\n');
         ws.close();
       });
 
       ws.addEventListener('close', () => {
         if (statusCode === 200) {
-          add('Connection Closed')
+          add('Connection Closed\n')
         }
       });
     }
