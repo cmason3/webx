@@ -38,7 +38,7 @@ import (
   "github.com/gorilla/websocket"
 )
 
-var Version = "0.0.1"
+const Version = "0.0.1"
 
 //go:embed www
 var www embed.FS
@@ -68,6 +68,11 @@ func (w *httpWriter) WriteHeader(statusCode int) {
   }
   w.statusCode = statusCode
   w.ResponseWriter.WriteHeader(w.statusCode)
+}
+
+func ternary[T any](c bool, t, f T) T {
+  if c { return t }
+  return f
 }
 
 func slog(f string, a ...any) {
@@ -171,34 +176,30 @@ func logHandler(webLogToken string) func(http.ResponseWriter, *http.Request) {
   }
 }
 
-func wwwHandler(h http.Handler, tmpl *template.Template, noCache bool) http.Handler {
+func wwwHandler(h http.Handler, tmpl *template.Template, eTag string) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     if r.URL.Path == "/" {
       r.URL.Path = "/index.html"
     }
 
-    if noCache {
-      Version := fmt.Sprintf("%d", time.Now().UnixMilli())
-    }
-
-    if r.Header.Get("If-None-Match") == Version {
+    if r.Header.Get("If-None-Match") == eTag {
       w.WriteHeader(http.StatusNotModified)
 
     } else {
-      if strings.HasPrefix(r.URL.Path, fmt.Sprintf("/%s/", Version)) {
-        r.URL.Path = strings.TrimPrefix(r.URL.Path[1:], Version)
+      if strings.HasPrefix(r.URL.Path, fmt.Sprintf("/%s/", eTag)) {
+        r.URL.Path = strings.TrimPrefix(r.URL.Path[1:], eTag)
         w.Header().Set("Cache-Control", "max-age=31536000, immutable")
 
       } else {
         w.Header().Set("Cache-Control", "max-age=0, must-revalidate")
-        w.Header().Set("ETag", Version)
+        w.Header().Set("ETag", eTag)
       }
 
       if t := tmpl.Lookup(r.URL.Path[1:]); t != nil {
         var buf bytes.Buffer
 
         data := map[string]string {
-          "Version": Version,
+          "Version": eTag,
         }
 
         if err := t.Execute(&buf, data); err == nil {
@@ -250,7 +251,8 @@ func main() {
   mux := http.NewServeMux()
   subFS, _ := fs.Sub(www, "www")
   if tmpl, err := template.ParseFS(subFS, "*.html"); err == nil {
-    mux.Handle("GET /", wwwHandler(http.FileServer(http.FS(subFS)), tmpl, *noCachePtr))
+    eTag := ternary(*noCachePtr, fmt.Sprintf("%d", time.Now().UnixMilli()), Version)
+    mux.Handle("GET /", wwwHandler(http.FileServer(http.FS(subFS)), tmpl, eTag))
     mux.HandleFunc("POST /api/", apiHandler)
 
     if *webLogPtr {
