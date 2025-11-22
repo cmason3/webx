@@ -1,4 +1,4 @@
-(function() {
+(() => {
   function quote(str) {
     str = str.replace(/&/g, '&amp;');
     str = str.replace(/>/g, '&gt;');
@@ -19,7 +19,9 @@
     var atBottom = Math.ceil(window.innerHeight + window.scrollY) >= document.body.offsetHeight;
     document.querySelector('pre').innerHTML += ansiToRGB(quote(str));
     if (atBottom) {
-      window.scrollTo(0, document.body.scrollHeight);
+      setTimeout(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+      }, 0);
     }
   }
 
