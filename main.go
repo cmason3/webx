@@ -38,7 +38,7 @@ import (
   "github.com/gorilla/websocket"
 )
 
-const Version = "0.0.1"
+var Version = "0.0.1"
 
 //go:embed www
 var www embed.FS
@@ -238,6 +238,10 @@ func main() {
   webLogPtr := flag.Bool("weblog", false, "Enable /logs.html (Uses WEBX_WEBLOG_TOKEN)")
   noCachePtr := flag.Bool("nocache", false, "Disable Content Caching")
   flag.Parse()
+
+  if *noCachePtr {
+    Version = fmt.Sprintf("%d", time.Now().UnixMilli())
+  }
 
   sCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
   defer stop()
