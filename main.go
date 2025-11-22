@@ -236,6 +236,7 @@ func main() {
   pPtr := flag.Int("p", 8080, "Listen Port")
   xffPtr := flag.Bool("xff", false, "Use X-Forwarded-For")
   webLogPtr := flag.Bool("weblog", false, "Enable /logs.html (Uses WEBX_WEBLOG_TOKEN)")
+  noCachePtr := flag.Bool("nocache", false, "Disable Content Caching")
   flag.Parse()
 
   sCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
