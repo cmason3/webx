@@ -171,11 +171,16 @@ func logHandler(webLogToken string) func(http.ResponseWriter, *http.Request) {
   }
 }
 
-func wwwHandler(h http.Handler, tmpl *template.Template) http.Handler {
+func wwwHandler(h http.Handler, tmpl *template.Template, noCache bool) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     if r.URL.Path == "/" {
       r.URL.Path = "/index.html"
     }
+
+    if noCache {
+      Version := fmt.Sprintf("%d", time.Now().UnixMilli())
+    }
+
     if r.Header.Get("If-None-Match") == Version {
       w.WriteHeader(http.StatusNotModified)
 
@@ -239,17 +244,13 @@ func main() {
   noCachePtr := flag.Bool("nocache", false, "Disable Content Caching")
   flag.Parse()
 
-  if *noCachePtr {
-    Version = fmt.Sprintf("%d", time.Now().UnixMilli())
-  }
-
   sCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
   defer stop()
 
   mux := http.NewServeMux()
   subFS, _ := fs.Sub(www, "www")
   if tmpl, err := template.ParseFS(subFS, "*.html"); err == nil {
-    mux.Handle("GET /", wwwHandler(http.FileServer(http.FS(subFS)), tmpl))
+    mux.Handle("GET /", wwwHandler(http.FileServer(http.FS(subFS)), tmpl, *noCachePtr))
     mux.HandleFunc("POST /api/", apiHandler)
 
     if *webLogPtr {
