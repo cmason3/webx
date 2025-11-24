@@ -1,4 +1,6 @@
 (() => {
+  var tid = 0;
+
   function quote(str) {
     str = str.replace(/&/g, '&amp;');
     str = str.replace(/>/g, '&gt;');
@@ -16,13 +18,11 @@
   }
 
   function add(str) {
-    var atBottom = Math.ceil(window.innerHeight + window.scrollY) >= document.body.offsetHeight;
+    clearTimeout(tid);
     document.querySelector('pre').innerHTML += ansiToRGB(quote(str));
-    if (atBottom) {
-      setTimeout(() => {
-        window.scrollTo(0, document.body.scrollHeight);
-      }, 0);
-    }
+    tid = setTimeout(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+    }, 0);
   }
 
   window.addEventListener('load', (e) => {
