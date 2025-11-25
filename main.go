@@ -246,7 +246,7 @@ func main() {
   lPtr := flag.String("l", "127.0.0.1", "Listen Address")
   pPtr := flag.Int("p", 8080, "Listen Port")
   xffPtr := flag.Bool("xff", false, "Use X-Forwarded-For")
-  webLogPtr := flag.Bool("weblog", false, "Enable /logs.html (Uses WEBX_WEBLOG_TOKEN)")
+  webLogPtr := flag.Bool("weblog", false, "Enable /logs.html (uses WEBX_WEBLOG_TOKEN)")
   noCachePtr := flag.Bool("nocache", false, "Disable Content Caching")
   flag.Parse()
 
