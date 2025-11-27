@@ -2,19 +2,19 @@
   var tid = 0;
 
   function quote(str) {
-    str = str.replace(/&/g, '&amp;');
-    str = str.replace(/>/g, '&gt;');
-    return str.replace(/</g, '&lt;');
+    str = str.replaceAll(/&/g, '&amp;');
+    str = str.replaceAll(/>/g, '&gt;');
+    return str.replaceAll(/</g, '&lt;');
   }
 
   function ansiToRGB(str) {
-    str = str.replace('\033[31m', '<span style="color: rgb(239, 100, 135);">'); // Red
-    str = str.replace('\033[32m', '<span style="color: rgb(94, 202, 137);">'); // Green
-    str = str.replace('\033[33m', '<span style="color: rgb(253, 216, 119);">'); // Yellow
-    str = str.replace('\033[34m', '<span style="color: rgb(101, 174, 247);">'); // Blue
-    str = str.replace('\033[35m', '<span style="color: rgb(170, 127, 240);">'); // Magenta
-    str = str.replace('\033[36m', '<span style="color: rgb(67, 193, 190);">'); // Cyan
-    return str.replace('\033[0m', '</span>');
+    str = str.replaceAll('\033[31m', '<span style="color: rgb(239, 100, 135);">'); // Red
+    str = str.replaceAll('\033[32m', '<span style="color: rgb(94, 202, 137);">'); // Green
+    str = str.replaceAll('\033[33m', '<span style="color: rgb(253, 216, 119);">'); // Yellow
+    str = str.replaceAll('\033[34m', '<span style="color: rgb(101, 174, 247);">'); // Blue
+    str = str.replaceAll('\033[35m', '<span style="color: rgb(170, 127, 240);">'); // Magenta
+    str = str.replaceAll('\033[36m', '<span style="color: rgb(67, 193, 190);">'); // Cyan
+    return str.replaceAll('\033[0m', '</span>');
   }
 
   function add(str) {
