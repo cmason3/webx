@@ -79,7 +79,7 @@
     });
 
     document.getElementById('ftoken').addEventListener('submit', (e) => {
-      document.cookie = 'Auth-Token=' + document.getElementById('token').value + '; max-age=86400; path=/';
+      document.cookie = 'WebX-WebLog-Token=' + document.getElementById('token').value + '; max-age=86400; path=/';
       document.getElementById('token').value = '';
       e.preventDefault();
       mtoken.hide();

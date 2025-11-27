@@ -126,7 +126,7 @@ func logHandler(webLogToken string) func(http.ResponseWriter, *http.Request) {
 
       w.(*httpWriter).statusCode = 0
 
-      if cookie, err := r.Cookie("Auth-Token"); err != nil || cookie.Value != webLogToken {
+      if cookie, err := r.Cookie("WebX-WebLog-Token"); err != nil || cookie.Value != webLogToken {
         slog("[%s] {%s} %s %s\n", w.(*httpWriter).remoteHost, "\033[31m401\033[0m", r.Method, r.URL.Path)
         c.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))))
         return
