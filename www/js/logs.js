@@ -75,7 +75,7 @@
       document.getElementById('token').focus();
     });
 
-    document.getElementById('mtoken').addEventListener('hide.bs.modal', (e) => {
+    document.getElementById('mtoken').addEventListener('hidden.bs.modal', (e) => {
       document.getElementById('token').value = '';
     });
 
