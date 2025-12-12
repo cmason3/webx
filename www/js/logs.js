@@ -19,7 +19,7 @@
 
   function add(str) {
     document.querySelector('pre').innerHTML += ansiToRGB(quote(str));
-    window.scrollTo(0, document.body.scrollHeight);
+    window.scrollTo({ 'left': 0, 'top': document.body.scrollHeight, 'behavior': 'instant' });
   }
 
   window.addEventListener('load', (e) => {
